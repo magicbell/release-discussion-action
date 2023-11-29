@@ -1,0 +1,15 @@
+name: 'release-discussion-action'
+description: 'Publish releases to GitHub Discussions'
+inputs:
+  repo:
+    description: 'In what repository to publish the discussion'
+    required: true
+  category:
+    description: 'The category of the discussion'
+    required: true
+outputs:
+  url:
+    description: 'The url to the discussion'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
