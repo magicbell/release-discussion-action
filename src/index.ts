@@ -88,14 +88,6 @@ async function main() {
       search: cycleIdentifier,
     });
 
-    console.log(JSON.stringify({
-      identifier: cycleIdentifier,
-      from,
-      to,
-      searchResult
-    }, null, 2));
-
-
     let discussion = searchResult.find(node => node.body.includes(cycleIdentifier));
 
     if (discussion) {
@@ -116,8 +108,7 @@ async function main() {
 
     const releaseName = `${release.name}@${release.tag_name}`;
     const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
-
-
+    
     // get the discussion again, as we need the comments
     let { comments } = await getDiscussionById({
       discussionId: discussion!.id
@@ -148,8 +139,6 @@ async function main() {
 
     const releases = {};
 
-    console.log(JSON.stringify({ comments }, null, 2));
-
     for (const comment of comments) {
       const match = comment.body.match(/<!-- release-item:(.*?)@(.*?) -->/);
       if (!match) continue;
@@ -174,9 +163,7 @@ async function main() {
       }
     }
 
-    const tocMarkdown = tocLines.join("\n").trim();
-    console.log(JSON.stringify({ tocLines, tocMarkdown }, null, 2));
-
+    const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : '';
     const newBody = discussion!.body
       .replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${tocMarkdown}\n$2`);
 
