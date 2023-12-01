@@ -5972,6 +5972,31 @@ function onceStrict (fn) {
 
 /***/ }),
 
+/***/ 4594:
+/***/ ((module) => {
+
+"use strict";
+
+
+var isProduction = process.env.NODE_ENV === 'production';
+var prefix = 'Invariant failed';
+function invariant(condition, message) {
+    if (condition) {
+        return;
+    }
+    if (isProduction) {
+        throw new Error(prefix);
+    }
+    var provided = typeof message === 'function' ? message() : message;
+    var value = provided ? "".concat(prefix, ": ").concat(provided) : prefix;
+    throw new Error(value);
+}
+
+module.exports = invariant;
+
+
+/***/ }),
+
 /***/ 4294:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -28907,6 +28932,461 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 6144:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __importStar(__nccwpck_require__(2186));
+const github = __importStar(__nccwpck_require__(5438));
+const queries_1 = __nccwpck_require__(2840);
+const full_name = core.getInput('repo');
+const [owner, repo] = full_name.split("/");
+const categorySlug = core.getInput('category');
+const cycleLength = core.getInput('cycle') === 'month' ? 'month' : 'week';
+function getWeekNumber(date = new Date()) {
+    const startDate = new Date(date.getFullYear(), 0, 1);
+    const days = Math.floor((date.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000) + 1);
+    return Math.ceil(days / 7);
+}
+function getFirstDayOfWeek(weekNumber, year) {
+    const startDate = new Date(year, 0, 1);
+    const dayNum = startDate.getDay();
+    const diff = --weekNumber * 7;
+    // Adjust if the year starts on a day other than Monday
+    if (dayNum !== 1) {
+        startDate.setDate(startDate.getDate() - (dayNum - 1));
+    }
+    startDate.setDate(startDate.getDate() + diff);
+    return startDate;
+}
+function getFirstDayOfMonth(month, year) {
+    return new Date(year, month, 1);
+}
+function getCycleId(date, cycleLength) {
+    if (cycleLength === 'week')
+        return `${date.getFullYear()}W${getWeekNumber(date)}`;
+    return `${new Date(date.getFullYear(), date.getMonth(), 1).toISOString().substring(0, 7)}`;
+}
+function getCycleName(date, cycleLength) {
+    if (cycleLength === 'week')
+        return `${date.getFullYear()} Week ${getWeekNumber(date)}`;
+    return `${date.getFullYear()} ${date.toLocaleString("default", { month: "long" })}`;
+}
+function main() {
+    var _a, _b;
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const isDeleteRequest = github.context.payload.action === 'deleted';
+            const release = github.context.payload.release;
+            const isPrivate = Boolean((_a = github.context.payload.repository) === null || _a === void 0 ? void 0 : _a.private);
+            const releaseDate = new Date(github.context.payload.release.published_at);
+            if (release.draft)
+                return;
+            const repository = yield (0, queries_1.getRepository)({ owner, repo, category: categorySlug });
+            const category = repository.discussionCategory;
+            if (!category) {
+                core.setFailed(`Category "${categorySlug}" not found, please ensure the category slug is correct.`);
+                process.exit(1);
+            }
+            const cycleIdentifier = `<!-- release-cycle:${getCycleId(releaseDate, cycleLength)} -->`;
+            const cycleName = getCycleName(releaseDate, cycleLength);
+            const from = cycleLength === 'week'
+                ? getFirstDayOfWeek(getWeekNumber(releaseDate), releaseDate.getFullYear())
+                : getFirstDayOfMonth(releaseDate.getFullYear(), releaseDate.getMonth());
+            const to = cycleLength === 'week'
+                ? getFirstDayOfWeek(getWeekNumber(releaseDate) + 1, releaseDate.getFullYear())
+                : getFirstDayOfMonth(releaseDate.getFullYear(), releaseDate.getMonth() + 1);
+            // note, the github api doesn't search for the exact string, we need to filter the results
+            const searchResult = yield (0, queries_1.searchDiscussions)({
+                repo: full_name,
+                category: category.name,
+                from,
+                to,
+                search: cycleIdentifier,
+            });
+            console.log(JSON.stringify({
+                identifier: cycleIdentifier,
+                from,
+                to,
+                searchResult
+            }, null, 2));
+            let discussion = searchResult.find(node => node.body.includes(cycleIdentifier));
+            if (discussion) {
+                core.info(`Using discussion ${discussion.title} - ${discussion.url}`);
+            }
+            else {
+                core.info(`Discussion not found, creating new discussion for "${cycleName}"`);
+                // create the discussion, as non was found
+                discussion = yield (0, queries_1.createDiscussion)({
+                    repositoryId: repository.id,
+                    categoryId: category.id,
+                    title: `Releases - ${cycleName}`,
+                    body: `${cycleIdentifier}\n\n<!-- START-RELEASE-TOC -->\n<!-- END-RELEASE-TOC -->`,
+                });
+                core.info(`Created discussion ${discussion.title} - ${discussion.url}`);
+            }
+            const releaseName = `${release.name}@${release.tag_name}`;
+            const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
+            // get the discussion again, as we need the comments
+            let { comments } = yield (0, queries_1.getDiscussionById)({
+                discussionId: discussion.id
+            });
+            let comment = comments.find(node => node.body.includes(releaseIdentifier));
+            const title = isPrivate ? releaseName : `[${releaseName}](${release.html_url})`;
+            const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
+            if (isDeleteRequest && comment) {
+                yield (0, queries_1.deleteDiscussionComment)({ commentId: comment.id });
+                comments = comments.filter(x => x.id !== (comment === null || comment === void 0 ? void 0 : comment.id));
+                core.info(`Deleted comment ${releaseName} - ${comment.url}`);
+            }
+            else if (isDeleteRequest) {
+                core.info(`Comment for ${releaseName} not found, nothing to delete.`);
+            }
+            else if (comment) {
+                // update existing comment with updated release info
+                comment = yield (0, queries_1.updateDiscussionComment)({ commentId: comment.id, body });
+                comments = comments.map(x => x.id === comment.id ? comment : x);
+                core.info(`Updated comment ${releaseName} - ${comment.url}`);
+            }
+            else {
+                // create new comment with release info
+                comment = yield (0, queries_1.addDiscussionComment)({ discussionId: discussion.id, body });
+                comments.push(comment);
+                core.info(`Created comment ${releaseName} - ${comment.url}`);
+            }
+            const releases = {};
+            console.log(JSON.stringify({ comments }, null, 2));
+            for (const comment of comments) {
+                const match = comment.body.match(/<!-- release-item:(.*?)@(.*?) -->/);
+                if (!match)
+                    continue;
+                const name = match[1].trim();
+                const version = match[2].trim();
+                (_b = releases[name]) !== null && _b !== void 0 ? _b : (releases[name] = []);
+                releases[name].push({
+                    id: comment.id,
+                    name,
+                    version,
+                    url: comment.url,
+                });
+            }
+            const tocLines = ['**Releases**\n'];
+            for (const name of Object.keys(releases).sort()) {
+                for (const release of releases[name]) {
+                    tocLines.push(`- [**${release.name}**: ${release.version}](${release.url})`);
+                }
+            }
+            const tocMarkdown = tocLines.join("\n").trim();
+            console.log(JSON.stringify({ tocLines, tocMarkdown }, null, 2));
+            const newBody = discussion.body
+                .replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${tocMarkdown}\n$2`);
+            if (newBody.replace(/\s/g, '') !== discussion.body.replace(/\s/g, '')) {
+                yield (0, queries_1.updateDiscussion)({ discussionId: discussion.id, body: newBody });
+                core.info(`Updated TOC in discussion ${discussion.url}`);
+            }
+        }
+        catch (error) {
+            core.setFailed(error.message);
+        }
+    });
+}
+main();
+
+
+/***/ }),
+
+/***/ 2840:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getRepository = exports.deleteDiscussionComment = exports.updateDiscussionComment = exports.addDiscussionComment = exports.updateDiscussion = exports.createDiscussion = exports.deleteDiscussion = exports.getDiscussionById = exports.searchDiscussions = void 0;
+const github = __importStar(__nccwpck_require__(5438));
+const core = __importStar(__nccwpck_require__(2186));
+const tiny_invariant_1 = __importDefault(__nccwpck_require__(4594));
+const token = process.env.GITHUB_TOKEN;
+(0, tiny_invariant_1.default)(token, 'GITHUB_TOKEN is required');
+const octokit = github.getOctokit(token);
+const graphql = octokit.graphql.defaults({
+    headers: {
+        authorization: `bearer ${token}`,
+    }
+});
+function searchDiscussions({ repo, from, to, search, category }) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // note, the github api doesn't search for the exact string, we need to filter the results
+        let qry = `in:body ${JSON.stringify(search)}`;
+        if (repo)
+            qry += ` repo:${repo}`;
+        if (from)
+            qry += ` created:>=${from.toISOString().substring(0, 10)}`;
+        if (to)
+            qry += ` created:<${to.toISOString().substring(0, 10)}`;
+        if (category)
+            qry += ` category:${JSON.stringify(category)}`;
+        core.debug(`searching for discussions: ${qry}`);
+        // note: octokit does not support variables named `query`
+        const query = `query search($qry: String!) {
+    search (type: DISCUSSION, first: 100, query: $qry) {
+      nodes {
+          ... on Discussion {
+          id
+          title
+          body
+          url
+        }
+      }
+    }
+  }`;
+        const result = yield graphql(query, { qry });
+        return result.search.nodes;
+    });
+}
+exports.searchDiscussions = searchDiscussions;
+function getDiscussionById(variables) {
+    return __awaiter(this, void 0, void 0, function* () {
+        core.debug(`get discussion by id: ${variables.discussionId}`);
+        const query = `query node($discussionId: ID!, $first: Int = 100, $after: String) {
+    node(id: $discussionId) {
+      ...on Discussion {
+        id
+        title
+        body
+        url
+
+        comments (first: $first, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+  
+          nodes {
+            id
+            body
+            url
+          }
+        }
+      }
+    }
+  }`;
+        let comments = [];
+        let pageInfo;
+        let discussion = null;
+        do {
+            // collect all comments for the discussion
+            const vars = { discussionId: variables.discussionId, after: pageInfo === null || pageInfo === void 0 ? void 0 : pageInfo.endCursor };
+            const result = yield graphql(query, vars);
+            // @ts-expect-error comments is not null
+            comments.push(...result.node.comments.nodes);
+            pageInfo = result.node.comments.pageInfo;
+            discussion = result.node;
+        } while (pageInfo.hasNextPage);
+        return Object.assign(Object.assign({}, discussion), { comments });
+    });
+}
+exports.getDiscussionById = getDiscussionById;
+function deleteDiscussion(variables) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const mutation = `mutation ($discussionId: ID!) {
+    deleteDiscussion(input: { id: $discussionId }) {
+      discussion {
+        id
+        title
+        body
+        url
+      }
+    }
+  }`;
+        const result = yield graphql(mutation, variables);
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.deleteDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, 'discussion not found');
+        return result.deleteDiscussion.discussion;
+    });
+}
+exports.deleteDiscussion = deleteDiscussion;
+function createDiscussion(variables) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const mutation = `mutation createDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+    createDiscussion(input: { repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body }) {
+      discussion {
+        id
+        title
+        body
+        url
+      }
+    }
+  }`;
+        const result = yield graphql(mutation, variables);
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.createDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, 'discussion not found');
+        return result.createDiscussion.discussion;
+    });
+}
+exports.createDiscussion = createDiscussion;
+function updateDiscussion(variables) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const mutation = `mutation updateDiscussion($discussionId: ID!, $body: String!) {
+    updateDiscussion(input: { discussionId: $discussionId, body: $body }) {
+      discussion {
+        id
+        url
+        body
+      }
+    }
+  }`;
+        const result = yield graphql(mutation, variables);
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.updateDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, 'discussion not found');
+        return result.updateDiscussion.discussion;
+    });
+}
+exports.updateDiscussion = updateDiscussion;
+function addDiscussionComment(variables) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const mutation = `mutation addDiscussionComment($discussionId: ID!, $body: String!) {
+    addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
+      comment {
+        id
+        url
+        body
+      }
+    }
+  }`;
+        const result = yield graphql(mutation, variables);
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.addDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, 'comment not found');
+        return result.addDiscussionComment.comment;
+    });
+}
+exports.addDiscussionComment = addDiscussionComment;
+function updateDiscussionComment(variables) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const mutation = `mutation updateDiscussionComment($commentId: ID!, $body: String!) {
+    updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
+      comment {
+        id
+        url
+        body
+      }
+    }
+  }`;
+        const result = yield graphql(mutation, variables);
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.updateDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, 'comment not found');
+        return result.updateDiscussionComment.comment;
+    });
+}
+exports.updateDiscussionComment = updateDiscussionComment;
+function deleteDiscussionComment(variables) {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        const mutation = `mutation deleteDiscussionComment($commentId: ID!) {
+    deleteDiscussionComment(input: { id: $commentId }) {
+      comment {
+        id
+        url
+        body
+      }
+    }
+  }`;
+        const result = yield graphql(mutation, variables);
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.deleteDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, 'comment not found');
+        return result.deleteDiscussionComment.comment;
+    });
+}
+exports.deleteDiscussionComment = deleteDiscussionComment;
+function getRepository({ owner, repo, category }) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const query = `query repository($owner: String!, $repo: String!, $category: String!) {
+    repository(owner: $owner, name: $repo) {
+      id
+  
+      discussionCategory(slug: $category) {
+        id
+        name
+        slug
+      }
+    }
+  }`;
+        const result = yield graphql(query, { owner, repo, category });
+        return result.repository;
+    });
+}
+exports.getRepository = getRepository;
+
+
+/***/ }),
+
 /***/ 9491:
 /***/ ((module) => {
 
@@ -30796,255 +31276,12 @@ module.exports = parseParams
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
-(() => {
-const core = __nccwpck_require__(2186);
-const github = __nccwpck_require__(5438);
-
-const full_name = core.getInput('repo');
-const [owner, repo] = full_name.split("/");
-const categorySlug = core.getInput('category');
-const token = process.env.GITHUB_TOKEN;
-
-const octokit = github.getOctokit(token);
-const graphql = octokit.graphql.defaults({
-    headers: {
-        authorization: `bearer ${token}`,
-    }
-});
-
-// Get the current month and year
-const currentDate = new Date();
-const currentMonth = currentDate.toLocaleString("default", { month: "long" });
-const currentYear = currentDate.getFullYear();
-
-// note: octokit does not support variables named `query`
-const SEARCH_QUERY = `query search($qry: String!) {
-  search (type: DISCUSSION, first: 100, query: $qry) {
-    nodes {
-      ... on Discussion {
-        id
-        title
-        body
-        url
-      }
-    }
-  }
-}`;
-
-const DISCUSSION_BY_ID_QUERY = `query node($id: ID!, $first: Int = 100, $after: String) {
-  node(id: $id) {
-    ...on Discussion {
-      comments (first: $first, after: $after) {
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-
-        nodes {
-          id
-          body
-          url
-        }
-      }
-    }
-  }
-}`;
-
-const CREATE_DISCUSSION_MUTATION = `mutation createDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
-  createDiscussion(input: { repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body }) {
-    discussion {
-      id
-      title
-      body
-      url
-    }
-  }
-}`;
-
-const UPDATE_DISCUSSION_MUTATION = `mutation updateDiscussion($discussionId: ID!, $body: String!) {
-  updateDiscussion(input: { discussionId: $discussionId, body: $body }) {
-    discussion {
-      id
-      url
-      body
-    }
-  }
-}`;
-
-const CREATE_DISCUSSION_COMMENT_MUTATION = `mutation addDiscussionComment($discussionId: ID!, $body: String!) {
-  addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
-    comment {
-      id
-      url
-      body
-    }
-  }
-}`;
-
-const UPDATE_DISCUSSION_COMMENT_MUTATION = `mutation updateDiscussionComment($commentId: ID!, $body: String!) {
-  updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
-    comment {
-      id
-      url
-      body
-    }
-  }
-}`;
-
-const DELETE_DISCUSSION_COMMENT_MUTATION = `mutation deleteDiscussionComment($commentId: ID!) {
-  deleteDiscussionComment(input: { id: $commentId }) {
-    comment {
-      id
-      url
-      body
-    }
-  }
-}`;
-
-const REPO_INFO_QUERY = `query repository($owner: String!, $repo: String!, $category: String!) {
-  repository(owner: $owner, name: $repo) {
-    id
-
-    discussionCategory(slug: $category) {
-      id
-      name
-      slug
-    }
-  }
-}`;
-
-async function main() {
-  try {
-    const isDeleteRequest = github.context.payload.action === 'deleted';
-    const release = github.context.payload.release;
-    const isPrivate = github.context.payload.repository.private;
-    const releaseDate = new Date(github.context.payload.release.published_at); 
-
-    if (release.draft) return;
-
-    const repository = await graphql(REPO_INFO_QUERY, { owner, repo, category: categorySlug }).then(x => x.repository);
-    const category = repository.discussionCategory;
-    
-    if (!category) {
-      core.setFailed(`Category "${categorySlug}" not found, please ensure the category slug is correct.`);
-      process.exit(1);
-    }
-
-    const cycleName = new Date(releaseDate.getFullYear(), releaseDate.getMonth(), 1).toISOString().substring(0, 7);
-    const from = new Date(releaseDate.getFullYear(), releaseDate.getMonth(), 1).toISOString().substring(0, 10);
-    const to = new Date(releaseDate.getFullYear(), releaseDate.getMonth() + 1, 1).toISOString().substring(0, 10);
-    const cycleIdentifier = `<!-- release-cycle:${cycleName} -->`;
-
-    // note, the github api doens't search for the exact string, we need to filter the results
-    let qry = `repo:${full_name} created:>=${from} created:<${to} in:body ${JSON.stringify(cycleIdentifier)}`;
-    if (category) qry += ` category:${JSON.stringify(category.name)}`;
-
-    const searchResult = await graphql(SEARCH_QUERY, { qry });
-    let discussion = searchResult.search.nodes.find(node => node.body.includes(cycleIdentifier));
-
-    if (discussion) {
-      core.info(`Using discussion ${discussion.title} - ${discussion.url}`);
-    } else {
-      core.info(`Discussion not found, creating new discussion for "${cycleName}"`);
-
-      // create the discussion, as non was found
-      const result = await graphql(CREATE_DISCUSSION_MUTATION, {
-        repositoryId: String(repository.id),
-        categoryId: String(category.id),
-        title: `Releases - ${currentYear} ${currentMonth}`,
-        body: `${cycleIdentifier}\n\n<!-- START-RELEASE-TOC -->\n<!-- END-RELEASE-TOC -->`,
-      });
-
-      discussion = result.createDiscussion.discussion;
-      core.info(`Created discussion ${discussion.title} - ${discussion.url}`);
-    }
-
-    const releaseName = `${release.name}@${release.tag_name}`;
-    const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
-    let comments = [];
-    let pageInfo;
-
-    do {
-      // collect all comments for the discussion, we'll search for the release comment, but also use them to rebuild the TOC
-      const result = await graphql(DISCUSSION_BY_ID_QUERY, { id: discussion.id, after: pageInfo?.endCursor });
-      comments.push(...result.node.comments.nodes);
-      pageInfo = result.node.comments.pageInfo;
-    } while (pageInfo.hasNextPage)
-  
-    let comment = comments.find(node => node.body.includes(releaseIdentifier));
-    const title = isPrivate ? releaseName : `[${releaseName}](${release.html_url})`;
-    const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
-
-    if (isDeleteRequest && comment) {
-      comments = comments.filter(x => x.id !== comment.id);
-      await graphql(DELETE_DISCUSSION_COMMENT_MUTATION, { commentId: comment.id });
-      core.info(`Deleted comment ${releaseName} - ${comment.url}`);
-    } else if (isDeleteRequest) {
-      core.info(`Comment for ${releaseName} not found, nothing to delete.`)
-    } else if (comment) {
-      // update existing comment with updated release info
-      comment = await graphql(UPDATE_DISCUSSION_COMMENT_MUTATION, {
-        commentId: comment.id,
-        body,
-      }).then(x => x.updateDiscussionComment.comment);
-      core.info(`Updated comment ${releaseName} - ${comment.url}`);
-    } else {
-      // create new comment with release info
-      comment = await graphql(CREATE_DISCUSSION_COMMENT_MUTATION, {
-        discussionId: discussion.id,
-        body,
-      }).then(x => x.addDiscussionComment.comment);
-      core.info(`Created comment ${releaseName} - ${comment.url}`);
-    }
-
-    // TODO: update TOC
-    const releases = {};
-
-    for (const comment of comments) {
-      const match = comment.body.match(/release-item:(.*?)@(v[\d.]+)/);
-      if (!match) continue;
-
-      const name = match[1].trim();
-      const version = match[2].trim();
-
-      releases[name] ??= [];
-      releases[name].push({
-        id: comment.id,
-        name,
-        version,
-        url: comment.url,
-      });
-    }
-
-    let toc = ['**Releases**\n'];
-
-    for (const name of Object.keys(releases).sort()) {
-      for (const release of releases[name]) {
-        toc.push(`- [**${release.name}**: ${release.version}](${release.url})`);
-      }
-    }
-    
-    toc = toc.join("\n").trim();
-    const newBody = discussion.body
-      .replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${toc}\n$2`);
- 
-    if (newBody !== discussion.body) {
-      await graphql(UPDATE_DISCUSSION_MUTATION, {
-        discussionId: discussion.id,
-        body: newBody,
-      });
-      core.info(`Updated TOC in discussion ${discussion.url}`);
-    }
-  } catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-main();
-})();
-
-module.exports = __webpack_exports__;
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __nccwpck_require__(6144);
+/******/ 	module.exports = __webpack_exports__;
+/******/ 	
 /******/ })()
 ;

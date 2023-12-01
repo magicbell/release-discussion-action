@@ -7,6 +7,9 @@ inputs:
   category:
     description: 'The category of the discussion'
     required: true
+  cycle:
+    description: 'The duration of a cycle, month or week'
+    default: 'month'
 outputs:
   url:
     description: 'The url to the discussion'
