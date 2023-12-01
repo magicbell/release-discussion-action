@@ -28973,10 +28973,10 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const queries_1 = __nccwpck_require__(2840);
-const full_name = core.getInput('repo');
+const full_name = core.getInput("repo");
 const [owner, repo] = full_name.split("/");
-const categorySlug = core.getInput('category');
-const cycleLength = core.getInput('cycle') === 'month' ? 'month' : 'week';
+const categorySlug = core.getInput("category");
+const cycleLength = core.getInput("cycle") === "month" ? "month" : "week";
 function getWeekNumber(date = new Date()) {
     const startDate = new Date(date.getFullYear(), 0, 1);
     const days = Math.floor((date.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000) + 1);
@@ -28997,26 +28997,34 @@ function getFirstDayOfMonth(month, year) {
     return new Date(year, month, 1);
 }
 function getCycleId(date, cycleLength) {
-    if (cycleLength === 'week')
+    if (cycleLength === "week")
         return `${date.getFullYear()}W${getWeekNumber(date)}`;
-    return `${new Date(date.getFullYear(), date.getMonth(), 1).toISOString().substring(0, 7)}`;
+    return `${new Date(date.getFullYear(), date.getMonth(), 1)
+        .toISOString()
+        .substring(0, 7)}`;
 }
 function getCycleName(date, cycleLength) {
-    if (cycleLength === 'week')
+    if (cycleLength === "week")
         return `${date.getFullYear()} Week ${getWeekNumber(date)}`;
-    return `${date.getFullYear()} ${date.toLocaleString("default", { month: "long" })}`;
+    return `${date.getFullYear()} ${date.toLocaleString("default", {
+        month: "long",
+    })}`;
 }
 function main() {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const isDeleteRequest = github.context.payload.action === 'deleted';
+            const isDeleteRequest = github.context.payload.action === "deleted";
             const release = github.context.payload.release;
             const isPrivate = Boolean((_a = github.context.payload.repository) === null || _a === void 0 ? void 0 : _a.private);
             const releaseDate = new Date(github.context.payload.release.published_at);
             if (release.draft)
                 return;
-            const repository = yield (0, queries_1.getRepository)({ owner, repo, category: categorySlug });
+            const repository = yield (0, queries_1.getRepository)({
+                owner,
+                repo,
+                category: categorySlug,
+            });
             const category = repository.discussionCategory;
             if (!category) {
                 core.setFailed(`Category "${categorySlug}" not found, please ensure the category slug is correct.`);
@@ -29024,10 +29032,10 @@ function main() {
             }
             const cycleIdentifier = `<!-- release-cycle:${getCycleId(releaseDate, cycleLength)} -->`;
             const cycleName = getCycleName(releaseDate, cycleLength);
-            const from = cycleLength === 'week'
+            const from = cycleLength === "week"
                 ? getFirstDayOfWeek(getWeekNumber(releaseDate), releaseDate.getFullYear())
                 : getFirstDayOfMonth(releaseDate.getFullYear(), releaseDate.getMonth());
-            const to = cycleLength === 'week'
+            const to = cycleLength === "week"
                 ? getFirstDayOfWeek(getWeekNumber(releaseDate) + 1, releaseDate.getFullYear())
                 : getFirstDayOfMonth(releaseDate.getFullYear(), releaseDate.getMonth() + 1);
             // note, the github api doesn't search for the exact string, we need to filter the results
@@ -29038,7 +29046,7 @@ function main() {
                 to,
                 search: cycleIdentifier,
             });
-            let discussion = searchResult.find(node => node.body.includes(cycleIdentifier));
+            let discussion = searchResult.find((node) => node.body.includes(cycleIdentifier));
             if (discussion) {
                 core.info(`Using discussion ${discussion.title} - ${discussion.url}`);
             }
@@ -29056,14 +29064,16 @@ function main() {
             const releaseIdentifier = `<!-- release-item:${release.name} -->`;
             // get the discussion again, as we need the comments
             let { comments } = yield (0, queries_1.getDiscussionById)({
-                discussionId: discussion.id
+                discussionId: discussion.id,
             });
-            let comment = comments.find(node => node.body.includes(releaseIdentifier));
-            const title = isPrivate ? release.name : `[${release.name}](${release.html_url})`;
+            let comment = comments.find((node) => node.body.includes(releaseIdentifier));
+            const title = isPrivate
+                ? release.name
+                : `[${release.name}](${release.html_url})`;
             const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
             if (isDeleteRequest && comment) {
                 yield (0, queries_1.deleteDiscussionComment)({ commentId: comment.id });
-                comments = comments.filter(x => x.id !== (comment === null || comment === void 0 ? void 0 : comment.id));
+                comments = comments.filter((x) => x.id !== (comment === null || comment === void 0 ? void 0 : comment.id));
                 core.info(`Deleted comment ${release.name} - ${comment.url}`);
             }
             else if (isDeleteRequest) {
@@ -29072,12 +29082,15 @@ function main() {
             else if (comment) {
                 // update existing comment with updated release info
                 comment = yield (0, queries_1.updateDiscussionComment)({ commentId: comment.id, body });
-                comments = comments.map(x => x.id === comment.id ? comment : x);
+                comments = comments.map((x) => (x.id === comment.id ? comment : x));
                 core.info(`Updated comment ${release.name} - ${comment.url}`);
             }
             else {
                 // create new comment with release info
-                comment = yield (0, queries_1.addDiscussionComment)({ discussionId: discussion.id, body });
+                comment = yield (0, queries_1.addDiscussionComment)({
+                    discussionId: discussion.id,
+                    body,
+                });
                 comments.push(comment);
                 core.info(`Created comment ${release.name} - ${comment.url}`);
             }
@@ -29094,16 +29107,15 @@ function main() {
                     url: comment.url,
                 });
             }
-            const tocLines = ['**Releases**\n'];
+            const tocLines = ["**Releases**\n"];
             for (const name of Object.keys(releases).sort()) {
                 for (const release of releases[name]) {
                     tocLines.push(`- [${release.name}](${release.url})`);
                 }
             }
-            const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : '';
-            const newBody = discussion.body
-                .replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${tocMarkdown}\n$2`);
-            if (newBody.replace(/\s/g, '') !== discussion.body.replace(/\s/g, '')) {
+            const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : "";
+            const newBody = discussion.body.replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${tocMarkdown}\n$2`);
+            if (newBody.replace(/\s/g, "") !== discussion.body.replace(/\s/g, "")) {
                 yield (0, queries_1.updateDiscussion)({ discussionId: discussion.id, body: newBody });
                 core.info(`Updated TOC in discussion ${discussion.url}`);
             }
@@ -29164,14 +29176,14 @@ const github = __importStar(__nccwpck_require__(5438));
 const core = __importStar(__nccwpck_require__(2186));
 const tiny_invariant_1 = __importDefault(__nccwpck_require__(4594));
 const token = process.env.GITHUB_TOKEN;
-(0, tiny_invariant_1.default)(token, 'GITHUB_TOKEN is required');
+(0, tiny_invariant_1.default)(token, "GITHUB_TOKEN is required");
 const octokit = github.getOctokit(token);
 const graphql = octokit.graphql.defaults({
     headers: {
         authorization: `bearer ${token}`,
-    }
+    },
 });
-function searchDiscussions({ repo, from, to, search, category }) {
+function searchDiscussions({ repo, from, to, search, category, }) {
     return __awaiter(this, void 0, void 0, function* () {
         // note, the github api doesn't search for the exact string, we need to filter the results
         let qry = `in:body ${JSON.stringify(search)}`;
@@ -29233,7 +29245,10 @@ function getDiscussionById(variables) {
         let discussion = null;
         do {
             // collect all comments for the discussion
-            const vars = { discussionId: variables.discussionId, after: pageInfo === null || pageInfo === void 0 ? void 0 : pageInfo.endCursor };
+            const vars = {
+                discussionId: variables.discussionId,
+                after: pageInfo === null || pageInfo === void 0 ? void 0 : pageInfo.endCursor,
+            };
             const result = yield graphql(query, vars);
             // @ts-expect-error comments is not null
             comments.push(...result.node.comments.nodes);
@@ -29258,7 +29273,7 @@ function deleteDiscussion(variables) {
     }
   }`;
         const result = yield graphql(mutation, variables);
-        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.deleteDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, 'discussion not found');
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.deleteDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, "discussion not found");
         return result.deleteDiscussion.discussion;
     });
 }
@@ -29277,7 +29292,7 @@ function createDiscussion(variables) {
     }
   }`;
         const result = yield graphql(mutation, variables);
-        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.createDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, 'discussion not found');
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.createDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, "discussion not found");
         return result.createDiscussion.discussion;
     });
 }
@@ -29295,7 +29310,7 @@ function updateDiscussion(variables) {
     }
   }`;
         const result = yield graphql(mutation, variables);
-        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.updateDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, 'discussion not found');
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.updateDiscussion) === null || _a === void 0 ? void 0 : _a.discussion, "discussion not found");
         return result.updateDiscussion.discussion;
     });
 }
@@ -29313,7 +29328,7 @@ function addDiscussionComment(variables) {
     }
   }`;
         const result = yield graphql(mutation, variables);
-        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.addDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, 'comment not found');
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.addDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, "comment not found");
         return result.addDiscussionComment.comment;
     });
 }
@@ -29331,7 +29346,7 @@ function updateDiscussionComment(variables) {
     }
   }`;
         const result = yield graphql(mutation, variables);
-        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.updateDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, 'comment not found');
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.updateDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, "comment not found");
         return result.updateDiscussionComment.comment;
     });
 }
@@ -29349,12 +29364,12 @@ function deleteDiscussionComment(variables) {
     }
   }`;
         const result = yield graphql(mutation, variables);
-        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.deleteDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, 'comment not found');
+        (0, tiny_invariant_1.default)((_a = result === null || result === void 0 ? void 0 : result.deleteDiscussionComment) === null || _a === void 0 ? void 0 : _a.comment, "comment not found");
         return result.deleteDiscussionComment.comment;
     });
 }
 exports.deleteDiscussionComment = deleteDiscussionComment;
-function getRepository({ owner, repo, category }) {
+function getRepository({ owner, repo, category, }) {
     return __awaiter(this, void 0, void 0, function* () {
         const query = `query repository($owner: String!, $repo: String!, $category: String!) {
     repository(owner: $owner, name: $repo) {
@@ -29367,7 +29382,11 @@ function getRepository({ owner, repo, category }) {
       }
     }
   }`;
-        const result = yield graphql(query, { owner, repo, category });
+        const result = yield graphql(query, {
+            owner,
+            repo,
+            category,
+        });
         return result.repository;
     });
 }

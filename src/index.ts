@@ -9,17 +9,19 @@ import {
   getRepository,
   searchDiscussions,
   updateDiscussion,
-  updateDiscussionComment
+  updateDiscussionComment,
 } from "./queries";
 
-const full_name = core.getInput('repo');
+const full_name = core.getInput("repo");
 const [owner, repo] = full_name.split("/");
-const categorySlug = core.getInput('category');
-const cycleLength = core.getInput('cycle') === 'month' ? 'month' :'week';
+const categorySlug = core.getInput("category");
+const cycleLength = core.getInput("cycle") === "month" ? "month" : "week";
 
 function getWeekNumber(date = new Date()) {
   const startDate = new Date(date.getFullYear(), 0, 1);
-  const days = Math.floor((date.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000) + 1);
+  const days = Math.floor(
+    (date.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000) + 1,
+  );
   return Math.ceil(days / 7);
 }
 
@@ -41,43 +43,69 @@ function getFirstDayOfMonth(month: number, year: number) {
   return new Date(year, month, 1);
 }
 
-function getCycleId(date: Date, cycleLength: 'month' | 'week') {
-  if (cycleLength === 'week') return `${date.getFullYear()}W${getWeekNumber(date)}`;
-  return `${new Date(date.getFullYear(), date.getMonth(), 1).toISOString().substring(0, 7)}`
+function getCycleId(date: Date, cycleLength: "month" | "week") {
+  if (cycleLength === "week")
+    return `${date.getFullYear()}W${getWeekNumber(date)}`;
+  return `${new Date(date.getFullYear(), date.getMonth(), 1)
+    .toISOString()
+    .substring(0, 7)}`;
 }
 
-function getCycleName(date: Date, cycleLength: 'month' | 'week') {
-  if (cycleLength === 'week') return `${date.getFullYear()} Week ${getWeekNumber(date)}`;
-  return `${date.getFullYear()} ${date.toLocaleString("default", { month: "long" })}`
+function getCycleName(date: Date, cycleLength: "month" | "week") {
+  if (cycleLength === "week")
+    return `${date.getFullYear()} Week ${getWeekNumber(date)}`;
+  return `${date.getFullYear()} ${date.toLocaleString("default", {
+    month: "long",
+  })}`;
 }
 
 async function main() {
   try {
-    const isDeleteRequest = github.context.payload.action === 'deleted';
+    const isDeleteRequest = github.context.payload.action === "deleted";
     const release = github.context.payload.release;
     const isPrivate = Boolean(github.context.payload.repository?.private);
     const releaseDate = new Date(github.context.payload.release.published_at);
 
     if (release.draft) return;
 
-    const repository = await getRepository({ owner, repo, category: categorySlug });
+    const repository = await getRepository({
+      owner,
+      repo,
+      category: categorySlug,
+    });
     const category = repository.discussionCategory;
 
     if (!category) {
-      core.setFailed(`Category "${categorySlug}" not found, please ensure the category slug is correct.`);
+      core.setFailed(
+        `Category "${categorySlug}" not found, please ensure the category slug is correct.`,
+      );
       process.exit(1);
     }
 
-    const cycleIdentifier = `<!-- release-cycle:${getCycleId(releaseDate, cycleLength)} -->`;
+    const cycleIdentifier = `<!-- release-cycle:${getCycleId(
+      releaseDate,
+      cycleLength,
+    )} -->`;
     const cycleName = getCycleName(releaseDate, cycleLength);
 
-    const from = cycleLength === 'week'
-        ? getFirstDayOfWeek(getWeekNumber(releaseDate), releaseDate.getFullYear())
+    const from =
+      cycleLength === "week"
+        ? getFirstDayOfWeek(
+            getWeekNumber(releaseDate),
+            releaseDate.getFullYear(),
+          )
         : getFirstDayOfMonth(releaseDate.getFullYear(), releaseDate.getMonth());
 
-    const to = cycleLength === 'week'
-        ? getFirstDayOfWeek(getWeekNumber(releaseDate) + 1, releaseDate.getFullYear())
-        : getFirstDayOfMonth(releaseDate.getFullYear(), releaseDate.getMonth() + 1);
+    const to =
+      cycleLength === "week"
+        ? getFirstDayOfWeek(
+            getWeekNumber(releaseDate) + 1,
+            releaseDate.getFullYear(),
+          )
+        : getFirstDayOfMonth(
+            releaseDate.getFullYear(),
+            releaseDate.getMonth() + 1,
+          );
 
     // note, the github api doesn't search for the exact string, we need to filter the results
     const searchResult = await searchDiscussions({
@@ -88,12 +116,16 @@ async function main() {
       search: cycleIdentifier,
     });
 
-    let discussion = searchResult.find(node => node.body.includes(cycleIdentifier));
+    let discussion = searchResult.find((node) =>
+      node.body.includes(cycleIdentifier),
+    );
 
     if (discussion) {
       core.info(`Using discussion ${discussion!.title} - ${discussion!.url}`);
     } else {
-      core.info(`Discussion not found, creating new discussion for "${cycleName}"`);
+      core.info(
+        `Discussion not found, creating new discussion for "${cycleName}"`,
+      );
 
       // create the discussion, as non was found
       discussion = await createDiscussion({
@@ -101,7 +133,7 @@ async function main() {
         categoryId: category.id,
         title: `Releases - ${cycleName}`,
         body: `${cycleIdentifier}\n\n<!-- START-RELEASE-TOC -->\n<!-- END-RELEASE-TOC -->`,
-      })
+      });
 
       core.info(`Created discussion ${discussion!.title} - ${discussion!.url}`);
     }
@@ -110,28 +142,34 @@ async function main() {
 
     // get the discussion again, as we need the comments
     let { comments } = await getDiscussionById({
-      discussionId: discussion!.id
+      discussionId: discussion!.id,
     });
 
-    let comment = comments.find(node => node.body.includes(releaseIdentifier));
-    const title = isPrivate ? release.name : `[${release.name}](${release.html_url})`;
+    let comment = comments.find((node) =>
+      node.body.includes(releaseIdentifier),
+    );
+    const title = isPrivate
+      ? release.name
+      : `[${release.name}](${release.html_url})`;
     const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
-
 
     if (isDeleteRequest && comment) {
       await deleteDiscussionComment({ commentId: comment!.id });
-      comments = comments.filter(x => x.id !== comment?.id);
+      comments = comments.filter((x) => x.id !== comment?.id);
       core.info(`Deleted comment ${release.name} - ${comment!.url}`);
     } else if (isDeleteRequest) {
-      core.info(`Comment for ${release.name} not found, nothing to delete.`)
+      core.info(`Comment for ${release.name} not found, nothing to delete.`);
     } else if (comment) {
       // update existing comment with updated release info
       comment = await updateDiscussionComment({ commentId: comment!.id, body });
-      comments = comments.map(x => x.id === comment!.id ? comment! : x);
+      comments = comments.map((x) => (x.id === comment!.id ? comment! : x));
       core.info(`Updated comment ${release.name} - ${comment!.url}`);
     } else {
       // create new comment with release info
-      comment = await addDiscussionComment({ discussionId: discussion!.id, body });
+      comment = await addDiscussionComment({
+        discussionId: discussion!.id,
+        body,
+      });
       comments.push(comment!);
       core.info(`Created comment ${release.name} - ${comment!.url}`);
     }
@@ -152,7 +190,7 @@ async function main() {
       });
     }
 
-    const tocLines = ['**Releases**\n'];
+    const tocLines = ["**Releases**\n"];
 
     for (const name of Object.keys(releases).sort()) {
       for (const release of releases[name]) {
@@ -160,11 +198,13 @@ async function main() {
       }
     }
 
-    const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : '';
-    const newBody = discussion!.body
-      .replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${tocMarkdown}\n$2`);
+    const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : "";
+    const newBody = discussion!.body.replace(
+      /(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/,
+      `$1\n${tocMarkdown}\n$2`,
+    );
 
-    if (newBody.replace(/\s/g, '') !== discussion!.body.replace(/\s/g, '')) {
+    if (newBody.replace(/\s/g, "") !== discussion!.body.replace(/\s/g, "")) {
       await updateDiscussion({ discussionId: discussion!.id, body: newBody });
       core.info(`Updated TOC in discussion ${discussion!.url}`);
     }

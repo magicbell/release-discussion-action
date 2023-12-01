@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ncc build src/index.ts -o dist"
+    "build": "ncc build src/index.ts -o dist",
+    "lint": "prettier . --write"
   },
   "author": "Stephan Meijer",
   "license": "MIT",
@@ -20,6 +21,7 @@
     "@octokit/graphql": "^7.0.2",
     "@octokit/graphql-schema": "^14.45.0",
     "@types/node": "^20.10.1",
+    "prettier": "^3.1.0",
     "typescript": "^5.3.2"
   }
 }

@@ -1,18 +1,18 @@
-name: 'release-discussion-action'
-description: 'Publish releases to GitHub Discussions'
+name: "release-discussion-action"
+description: "Publish releases to GitHub Discussions"
 inputs:
   repo:
-    description: 'In what repository to publish the discussion'
+    description: "In what repository to publish the discussion"
     required: true
   category:
-    description: 'The category of the discussion'
+    description: "The category of the discussion"
     required: true
   cycle:
-    description: 'The duration of a cycle, month or week'
-    default: 'month'
+    description: "The duration of a cycle, month or week"
+    default: "month"
 outputs:
   url:
-    description: 'The url to the discussion'
+    description: "The url to the discussion"
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"

@@ -1,21 +1,39 @@
-import * as github from '@actions/github';
+import * as github from "@actions/github";
 import * as core from "@actions/core";
 
-import type { Discussion, DiscussionComment, Query, Mutation, Repository } from '@octokit/graphql-schema';
-import invariant from 'tiny-invariant';
+import type {
+  Discussion,
+  DiscussionComment,
+  Query,
+  Mutation,
+  Repository,
+} from "@octokit/graphql-schema";
+import invariant from "tiny-invariant";
 
 const token = process.env.GITHUB_TOKEN;
 
-invariant(token, 'GITHUB_TOKEN is required');
+invariant(token, "GITHUB_TOKEN is required");
 
 const octokit = github.getOctokit(token);
 const graphql = octokit.graphql.defaults({
   headers: {
     authorization: `bearer ${token}`,
-  }
+  },
 });
 
-export async function searchDiscussions({ repo, from, to, search, category }: { repo: string, from: Date, to: Date, search: string, category: string }) {
+export async function searchDiscussions({
+  repo,
+  from,
+  to,
+  search,
+  category,
+}: {
+  repo: string;
+  from: Date;
+  to: Date;
+  search: string;
+  category: string;
+}) {
   // note, the github api doesn't search for the exact string, we need to filter the results
   let qry = `in:body ${JSON.stringify(search)}`;
   if (repo) qry += ` repo:${repo}`;
@@ -39,8 +57,10 @@ export async function searchDiscussions({ repo, from, to, search, category }: { 
     }
   }`;
 
-  const result = await graphql<{ search: Query['search'] }>(query, { qry });
-  return result.search.nodes as Array<Pick<Discussion, 'id' | 'title' | 'body' | 'url'>>;
+  const result = await graphql<{ search: Query["search"] }>(query, { qry });
+  return result.search.nodes as Array<
+    Pick<Discussion, "id" | "title" | "body" | "url">
+  >;
 }
 
 export async function getDiscussionById(variables: { discussionId: String }) {
@@ -76,19 +96,24 @@ export async function getDiscussionById(variables: { discussionId: String }) {
 
   do {
     // collect all comments for the discussion
-    const vars = { discussionId: variables.discussionId, after: pageInfo?.endCursor };
+    const vars = {
+      discussionId: variables.discussionId,
+      after: pageInfo?.endCursor,
+    };
     const result = await graphql<{ node: Discussion }>(query, vars);
 
     // @ts-expect-error comments is not null
     comments.push(...result.node.comments.nodes);
     pageInfo = result.node.comments.pageInfo;
     discussion = result.node;
-  } while (pageInfo.hasNextPage)
+  } while (pageInfo.hasNextPage);
 
   return {
     ...discussion,
     comments,
-  } as Pick<Discussion, 'id' | 'title' | 'body' | 'url'> & { comments: Pick<DiscussionComment, 'id' | 'body' | 'url'>[] };
+  } as Pick<Discussion, "id" | "title" | "body" | "url"> & {
+    comments: Pick<DiscussionComment, "id" | "body" | "url">[];
+  };
 }
 
 export async function deleteDiscussion(variables: { discussionId: string }) {
@@ -103,12 +128,22 @@ export async function deleteDiscussion(variables: { discussionId: string }) {
     }
   }`;
 
-  const result = await graphql<{ deleteDiscussion: Mutation['deleteDiscussion'] }>(mutation, variables);
-  invariant(result?.deleteDiscussion?.discussion, 'discussion not found');
-  return result.deleteDiscussion.discussion as Pick<Discussion, 'id' | 'title' | 'body' | 'url'>;
+  const result = await graphql<{
+    deleteDiscussion: Mutation["deleteDiscussion"];
+  }>(mutation, variables);
+  invariant(result?.deleteDiscussion?.discussion, "discussion not found");
+  return result.deleteDiscussion.discussion as Pick<
+    Discussion,
+    "id" | "title" | "body" | "url"
+  >;
 }
 
-export async function createDiscussion(variables: { repositoryId: string, categoryId: string, title: string, body: string }) {
+export async function createDiscussion(variables: {
+  repositoryId: string;
+  categoryId: string;
+  title: string;
+  body: string;
+}) {
   const mutation = `mutation createDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
     createDiscussion(input: { repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body }) {
       discussion {
@@ -120,13 +155,20 @@ export async function createDiscussion(variables: { repositoryId: string, catego
     }
   }`;
 
-  const result = await graphql<{ createDiscussion: Mutation['createDiscussion'] }>(mutation, variables);
-  invariant(result?.createDiscussion?.discussion, 'discussion not found');
-  return result.createDiscussion.discussion as Pick<Discussion, 'id' | 'title' | 'body' | 'url'>;
+  const result = await graphql<{
+    createDiscussion: Mutation["createDiscussion"];
+  }>(mutation, variables);
+  invariant(result?.createDiscussion?.discussion, "discussion not found");
+  return result.createDiscussion.discussion as Pick<
+    Discussion,
+    "id" | "title" | "body" | "url"
+  >;
 }
 
-
-export async function updateDiscussion(variables: { discussionId: string, body: string }) {
+export async function updateDiscussion(variables: {
+  discussionId: string;
+  body: string;
+}) {
   const mutation = `mutation updateDiscussion($discussionId: ID!, $body: String!) {
     updateDiscussion(input: { discussionId: $discussionId, body: $body }) {
       discussion {
@@ -137,12 +179,20 @@ export async function updateDiscussion(variables: { discussionId: string, body: 
     }
   }`;
 
-  const result = await graphql<{ updateDiscussion: Mutation['updateDiscussion'] }>(mutation, variables);
-  invariant(result?.updateDiscussion?.discussion, 'discussion not found');
-  return result.updateDiscussion.discussion as Pick<Discussion, 'id' | 'url' | 'body'>;
+  const result = await graphql<{
+    updateDiscussion: Mutation["updateDiscussion"];
+  }>(mutation, variables);
+  invariant(result?.updateDiscussion?.discussion, "discussion not found");
+  return result.updateDiscussion.discussion as Pick<
+    Discussion,
+    "id" | "url" | "body"
+  >;
 }
 
-export async function addDiscussionComment(variables: { discussionId: string, body: string }) {
+export async function addDiscussionComment(variables: {
+  discussionId: string;
+  body: string;
+}) {
   const mutation = `mutation addDiscussionComment($discussionId: ID!, $body: String!) {
     addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
       comment {
@@ -153,12 +203,20 @@ export async function addDiscussionComment(variables: { discussionId: string, bo
     }
   }`;
 
-  const result = await graphql<{ addDiscussionComment: Mutation['addDiscussionComment'] }>(mutation, variables);
-  invariant(result?.addDiscussionComment?.comment, 'comment not found')
-  return result.addDiscussionComment.comment as Pick<DiscussionComment, 'id' | 'url' | 'body'>;
+  const result = await graphql<{
+    addDiscussionComment: Mutation["addDiscussionComment"];
+  }>(mutation, variables);
+  invariant(result?.addDiscussionComment?.comment, "comment not found");
+  return result.addDiscussionComment.comment as Pick<
+    DiscussionComment,
+    "id" | "url" | "body"
+  >;
 }
 
-export async function updateDiscussionComment(variables: { commentId: string, body: string }) {
+export async function updateDiscussionComment(variables: {
+  commentId: string;
+  body: string;
+}) {
   const mutation = `mutation updateDiscussionComment($commentId: ID!, $body: String!) {
     updateDiscussionComment(input: { commentId: $commentId, body: $body }) {
       comment {
@@ -169,12 +227,19 @@ export async function updateDiscussionComment(variables: { commentId: string, bo
     }
   }`;
 
-  const result = await graphql<{ updateDiscussionComment: Mutation['updateDiscussionComment'] }>(mutation, variables);
-  invariant(result?.updateDiscussionComment?.comment, 'comment not found');
-  return result.updateDiscussionComment.comment as Pick<DiscussionComment, 'id' | 'url' | 'body'>;
+  const result = await graphql<{
+    updateDiscussionComment: Mutation["updateDiscussionComment"];
+  }>(mutation, variables);
+  invariant(result?.updateDiscussionComment?.comment, "comment not found");
+  return result.updateDiscussionComment.comment as Pick<
+    DiscussionComment,
+    "id" | "url" | "body"
+  >;
 }
 
-export async function deleteDiscussionComment(variables: { commentId: string }) {
+export async function deleteDiscussionComment(variables: {
+  commentId: string;
+}) {
   const mutation = `mutation deleteDiscussionComment($commentId: ID!) {
     deleteDiscussionComment(input: { id: $commentId }) {
       comment {
@@ -185,13 +250,26 @@ export async function deleteDiscussionComment(variables: { commentId: string }) 
     }
   }`;
 
-  const result = await graphql<{ deleteDiscussionComment: Mutation['deleteDiscussionComment'] }>(mutation, variables);
-  invariant(result?.deleteDiscussionComment?.comment, 'comment not found');
+  const result = await graphql<{
+    deleteDiscussionComment: Mutation["deleteDiscussionComment"];
+  }>(mutation, variables);
+  invariant(result?.deleteDiscussionComment?.comment, "comment not found");
 
-  return result.deleteDiscussionComment.comment as Pick<DiscussionComment, 'id' | 'url' | 'body'>;
+  return result.deleteDiscussionComment.comment as Pick<
+    DiscussionComment,
+    "id" | "url" | "body"
+  >;
 }
 
-export async function getRepository({ owner, repo, category }: { owner: string, repo: string, category: string }) {
+export async function getRepository({
+  owner,
+  repo,
+  category,
+}: {
+  owner: string;
+  repo: string;
+  category: string;
+}) {
   const query = `query repository($owner: String!, $repo: String!, $category: String!) {
     repository(owner: $owner, name: $repo) {
       id
@@ -204,6 +282,12 @@ export async function getRepository({ owner, repo, category }: { owner: string, 
     }
   }`;
 
-  const result = await graphql<{ repository: Query['repository'] }>(query, { owner, repo, category });
-  return result.repository as Pick<Repository, 'id'> & { discussionCategory: Pick<Discussion['category'], 'id' | 'name' | 'slug'> };
+  const result = await graphql<{ repository: Query["repository"] }>(query, {
+    owner,
+    repo,
+    category,
+  });
+  return result.repository as Pick<Repository, "id"> & {
+    discussionCategory: Pick<Discussion["category"], "id" | "name" | "slug">;
+  };
 }
