@@ -106,51 +106,48 @@ async function main() {
       core.info(`Created discussion ${discussion!.title} - ${discussion!.url}`);
     }
 
-    const releaseName = `${release.name}@${release.tag_name}`;
-    const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
-    
+    const releaseIdentifier = `<!-- release-item:${release.name} -->`;
+
     // get the discussion again, as we need the comments
     let { comments } = await getDiscussionById({
       discussionId: discussion!.id
     });
 
     let comment = comments.find(node => node.body.includes(releaseIdentifier));
-    const title = isPrivate ? releaseName : `[${releaseName}](${release.html_url})`;
+    const title = isPrivate ? release.name : `[${release.name}](${release.html_url})`;
     const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
 
 
     if (isDeleteRequest && comment) {
       await deleteDiscussionComment({ commentId: comment!.id });
       comments = comments.filter(x => x.id !== comment?.id);
-      core.info(`Deleted comment ${releaseName} - ${comment!.url}`);
+      core.info(`Deleted comment ${release.name} - ${comment!.url}`);
     } else if (isDeleteRequest) {
-      core.info(`Comment for ${releaseName} not found, nothing to delete.`)
+      core.info(`Comment for ${release.name} not found, nothing to delete.`)
     } else if (comment) {
       // update existing comment with updated release info
       comment = await updateDiscussionComment({ commentId: comment!.id, body });
       comments = comments.map(x => x.id === comment!.id ? comment! : x);
-      core.info(`Updated comment ${releaseName} - ${comment!.url}`);
+      core.info(`Updated comment ${release.name} - ${comment!.url}`);
     } else {
       // create new comment with release info
       comment = await addDiscussionComment({ discussionId: discussion!.id, body });
       comments.push(comment!);
-      core.info(`Created comment ${releaseName} - ${comment!.url}`);
+      core.info(`Created comment ${release.name} - ${comment!.url}`);
     }
 
     const releases = {};
 
     for (const comment of comments) {
-      const match = comment.body.match(/<!-- release-item:(.*?)@(.*?) -->/);
+      const match = comment.body.match(/<!-- release-item:(.*?) -->/);
       if (!match) continue;
 
       const name = match![1].trim();
-      const version = match![2].trim();
 
       releases[name] ??= [];
       releases[name].push({
         id: comment.id,
         name,
-        version,
         url: comment.url,
       });
     }
@@ -159,7 +156,7 @@ async function main() {
 
     for (const name of Object.keys(releases).sort()) {
       for (const release of releases[name]) {
-        tocLines.push(`- [**${release.name}**: ${release.version}](${release.url})`);
+        tocLines.push(`- [${release.name}](${release.url})`);
       }
     }
 

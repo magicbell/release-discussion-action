@@ -29038,12 +29038,6 @@ function main() {
                 to,
                 search: cycleIdentifier,
             });
-            console.log(JSON.stringify({
-                identifier: cycleIdentifier,
-                from,
-                to,
-                searchResult
-            }, null, 2));
             let discussion = searchResult.find(node => node.body.includes(cycleIdentifier));
             if (discussion) {
                 core.info(`Using discussion ${discussion.title} - ${discussion.url}`);
@@ -29059,59 +29053,54 @@ function main() {
                 });
                 core.info(`Created discussion ${discussion.title} - ${discussion.url}`);
             }
-            const releaseName = `${release.name}@${release.tag_name}`;
-            const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
+            const releaseIdentifier = `<!-- release-item:${release.name} -->`;
             // get the discussion again, as we need the comments
             let { comments } = yield (0, queries_1.getDiscussionById)({
                 discussionId: discussion.id
             });
             let comment = comments.find(node => node.body.includes(releaseIdentifier));
-            const title = isPrivate ? releaseName : `[${releaseName}](${release.html_url})`;
+            const title = isPrivate ? release.name : `[${release.name}](${release.html_url})`;
             const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
             if (isDeleteRequest && comment) {
                 yield (0, queries_1.deleteDiscussionComment)({ commentId: comment.id });
                 comments = comments.filter(x => x.id !== (comment === null || comment === void 0 ? void 0 : comment.id));
-                core.info(`Deleted comment ${releaseName} - ${comment.url}`);
+                core.info(`Deleted comment ${release.name} - ${comment.url}`);
             }
             else if (isDeleteRequest) {
-                core.info(`Comment for ${releaseName} not found, nothing to delete.`);
+                core.info(`Comment for ${release.name} not found, nothing to delete.`);
             }
             else if (comment) {
                 // update existing comment with updated release info
                 comment = yield (0, queries_1.updateDiscussionComment)({ commentId: comment.id, body });
                 comments = comments.map(x => x.id === comment.id ? comment : x);
-                core.info(`Updated comment ${releaseName} - ${comment.url}`);
+                core.info(`Updated comment ${release.name} - ${comment.url}`);
             }
             else {
                 // create new comment with release info
                 comment = yield (0, queries_1.addDiscussionComment)({ discussionId: discussion.id, body });
                 comments.push(comment);
-                core.info(`Created comment ${releaseName} - ${comment.url}`);
+                core.info(`Created comment ${release.name} - ${comment.url}`);
             }
             const releases = {};
-            console.log(JSON.stringify({ comments }, null, 2));
             for (const comment of comments) {
-                const match = comment.body.match(/<!-- release-item:(.*?)@(.*?) -->/);
+                const match = comment.body.match(/<!-- release-item:(.*?) -->/);
                 if (!match)
                     continue;
                 const name = match[1].trim();
-                const version = match[2].trim();
                 (_b = releases[name]) !== null && _b !== void 0 ? _b : (releases[name] = []);
                 releases[name].push({
                     id: comment.id,
                     name,
-                    version,
                     url: comment.url,
                 });
             }
             const tocLines = ['**Releases**\n'];
             for (const name of Object.keys(releases).sort()) {
                 for (const release of releases[name]) {
-                    tocLines.push(`- [**${release.name}**: ${release.version}](${release.url})`);
+                    tocLines.push(`- [${release.name}](${release.url})`);
                 }
             }
-            const tocMarkdown = tocLines.join("\n").trim();
-            console.log(JSON.stringify({ tocLines, tocMarkdown }, null, 2));
+            const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : '';
             const newBody = discussion.body
                 .replace(/(<!-- START-RELEASE-TOC -->)[\s\S]*?(<!-- END-RELEASE-TOC -->)/, `$1\n${tocMarkdown}\n$2`);
             if (newBody.replace(/\s/g, '') !== discussion.body.replace(/\s/g, '')) {
