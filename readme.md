@@ -35,10 +35,10 @@ jobs:
 
   steps:
     - name: publish discussion
-      uses: magicbell-io/release-discussion-action@main
+      uses: magicbell/release-discussion-action@main
       with:
         # the repository where the discussions are hosted
-        repo: magicbell-io/community
+        repo: magicbell/community
         # category slug, can be found in the URL of the category page
         category: product-changelog
         # group releases by week or month
