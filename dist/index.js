@@ -30062,7 +30062,7 @@ function main() {
                 });
                 core.info(`Created discussion ${discussion.title} - ${discussion.url}`);
             }
-            const releaseName = (releasePrefix !== null && releasePrefix !== void 0 ? releasePrefix : "") + release.name;
+            const releaseName = releasePrefix ? releasePrefix + "@" + release.name : release.name;
             const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
             // get the discussion again, as we need the comments
             let { comments } = yield (0, queries_1.getDiscussionById)({
