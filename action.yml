@@ -10,6 +10,9 @@ inputs:
   cycle:
     description: "The duration of a cycle, month or week"
     default: "month"
+  release-prefix:
+    description: "An optional prefix, in case your release title only contains a version number (typical for single package repos)."
+    required: false
 outputs:
   url:
     description: "The url to the discussion"
