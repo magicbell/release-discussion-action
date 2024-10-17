@@ -196,7 +196,7 @@ async function main() {
 
     for (const name of Object.keys(releases).sort()) {
       for (const release of releases[name]) {
-        tocLines.push(`- [${releaseName}](${release.url})`);
+        tocLines.push(`- [${release.name}](${release.url})`);
       }
     }
 

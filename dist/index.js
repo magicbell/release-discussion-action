@@ -30112,7 +30112,7 @@ function main() {
             const tocLines = ["**Releases**\n"];
             for (const name of Object.keys(releases).sort()) {
                 for (const release of releases[name]) {
-                    tocLines.push(`- [${releaseName}](${release.url})`);
+                    tocLines.push(`- [${release.name}](${release.url})`);
                 }
             }
             const tocMarkdown = tocLines.length > 1 ? tocLines.join("\n").trim() : "";
