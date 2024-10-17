@@ -44,7 +44,7 @@ jobs:
         # group releases by week or month
         cycle: week
         # an optional prefix can be used that will be prepended to the release title
-        # this is typically used for single package repositories
+        # this is typically used for non node packages
         # release-prefix: the-package-name
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
