@@ -16,6 +16,7 @@ const full_name = core.getInput("repo");
 const [owner, repo] = full_name.split("/");
 const categorySlug = core.getInput("category");
 const cycleLength = core.getInput("cycle") === "month" ? "month" : "week";
+const releasePrefix = core.getInput("release-prefix");
 
 function getWeekNumber(date = new Date()) {
   const startDate = new Date(date.getFullYear(), 0, 1);
@@ -138,7 +139,8 @@ async function main() {
       core.info(`Created discussion ${discussion!.title} - ${discussion!.url}`);
     }
 
-    const releaseIdentifier = `<!-- release-item:${release.name} -->`;
+    const releaseName = releasePrefix ? releasePrefix + "@" + release.name : release.name;
+    const releaseIdentifier = `<!-- release-item:${releaseName} -->`;
 
     // get the discussion again, as we need the comments
     let { comments } = await getDiscussionById({
@@ -149,21 +151,21 @@ async function main() {
       node.body.includes(releaseIdentifier),
     );
     const title = isPrivate
-      ? release.name
-      : `[${release.name}](${release.html_url})`;
+      ? releaseName
+      : `[${releaseName}](${release.html_url})`;
     const body = `${releaseIdentifier}\n\n### ${title}\n\n${release.body}`;
 
     if (isDeleteRequest && comment) {
       await deleteDiscussionComment({ commentId: comment!.id });
       comments = comments.filter((x) => x.id !== comment?.id);
-      core.info(`Deleted comment ${release.name} - ${comment!.url}`);
+      core.info(`Deleted comment ${releaseName} - ${comment!.url}`);
     } else if (isDeleteRequest) {
-      core.info(`Comment for ${release.name} not found, nothing to delete.`);
+      core.info(`Comment for ${releaseName} not found, nothing to delete.`);
     } else if (comment) {
       // update existing comment with updated release info
       comment = await updateDiscussionComment({ commentId: comment!.id, body });
       comments = comments.map((x) => (x.id === comment!.id ? comment! : x));
-      core.info(`Updated comment ${release.name} - ${comment!.url}`);
+      core.info(`Updated comment ${releaseName} - ${comment!.url}`);
     } else {
       // create new comment with release info
       comment = await addDiscussionComment({
@@ -171,7 +173,7 @@ async function main() {
         body,
       });
       comments.push(comment!);
-      core.info(`Created comment ${release.name} - ${comment!.url}`);
+      core.info(`Created comment ${releaseName} - ${comment!.url}`);
     }
 
     const releases = {};
