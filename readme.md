@@ -30,22 +30,22 @@ concurrency: release-discussion-action
 
 jobs:
   publish-release-notes:
-  name: Publish Release Notes
-  runs-on: ubuntu-latest
+    name: Publish Release Notes
+    runs-on: ubuntu-latest
 
-  steps:
-    - name: publish discussion
-      uses: magicbell/release-discussion-action@main
-      with:
-        # the repository where the discussions are hosted
-        repo: magicbell/community
-        # category slug, can be found in the URL of the category page
-        category: product-changelog
-        # group releases by week or month
-        cycle: week
-        # an optional prefix can be used that will be prepended to the release title
-        # this is typically used for non node packages
-        # release-prefix: the-package-name
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: publish discussion
+        uses: magicbell/release-discussion-action@main
+        with:
+          # the repository where the discussions are hosted
+          repo: magicbell/community
+          # category slug, can be found in the URL of the category page
+          category: product-changelog
+          # group releases by week or month
+          cycle: week
+          # an optional prefix can be used that will be prepended to the release title
+          # this is typically used for non node packages
+          # release-prefix: the-package-name
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
